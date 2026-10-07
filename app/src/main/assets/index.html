@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой IP-адрес (HackMyIP)</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #fff;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 36px 28px;
+            max-width: 520px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        }
+        h1 {
+            font-size: 1.4rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+            opacity: 0.85;
+        }
+        .badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(110, 231, 183, 0.15);
+            color: #6ee7b7;
+            border: 1px solid rgba(110, 231, 183, 0.3);
+            margin-bottom: 18px;
+        }
+        .ip {
+            font-size: 2.1rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin: 16px 0 20px;
+            word-break: break-all;
+            color: #6ee7b7;
+            min-height: 3rem;
+        }
+        .details {
+            font-size: 0.92rem;
+            line-height: 1.6;
+            opacity: 0.9;
+            margin-bottom: 22px;
+            min-height: 6rem;
+            text-align: left;
+        }
+        .details .row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 7px 0;
+        }
+        .details .label { opacity: 0.55; }
+        .details .value { font-weight: 500; }
+        .privacy {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .privacy.clean { background: rgba(110,231,183,0.2); color: #6ee7b7; }
+        .privacy.vpn { background: rgba(248,113,113,0.2); color: #f87171; }
+        .privacy.dc { background: rgba(251,191,36,0.2); color: #fbbf24; }
+        .buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        button {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex: 1;
+            min-width: 120px;
+        }
+        button:hover {
+            background: rgba(255, 255, 255, 0.16);
+            transform: translateY(-1px);
+        }
+        button:active { transform: translateY(0); }
+        .status {
+            font-size: 0.8rem;
+            opacity: 0.45;
+            margin-top: 14px;
+        }
+        .error { color: #f87171; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Ваш IP-адрес</h1>
+        <div class="badge">HackMyIP API v1</div>
+        <div class="ip" id="ip">Загрузка...</div>
+        <div class="details" id="details"></div>
+        <div class="buttons">
+            <button onclick="fetchIP()">Обновить</button>
+            <button onclick="copyIP()">Копировать IP</button>
+        </div>
+        <div class="status" id="status"></div>
+    </div>
+
+    <script>
+        const ipEl = document.getElementById('ip');
+        const detailsEl = document.getElementById('details');
+        const statusEl = document.getElementById('status');
+
+        async function fetchIP() {
+            ipEl.textContent = 'Загрузка...';
+            detailsEl.innerHTML = '';
+            statusEl.textContent = '';
+
+            try {
+                // HackMyIP API v1 — структурированный ответ
+                const res = await fetch('https://hackmyip.com/api/v1/ip');
+                if (!res.ok) throw new Error('Ошибка сети');
+                const json = await res.json();
+
+                if (!json.success || !json.data) {
+                    throw new Error('Некорректный ответ API');
+                }
+
+                const d = json.data;
+                ipEl.textContent = d.ip;
+
+                const rows = [];
+
+                // Геолокация
+                if (d.location) {
+                    const loc = d.location;
+                    if (loc.city) rows.push(['🏙️ Город', loc.city]);
+                    if (loc.region) rows.push(['📍 Регион', loc.region]);
+                    if (loc.country) rows.push(['🌍 Страна', loc.country]);
+                    if (loc.timezone) rows.push(['🕐 Часовой пояс', loc.timezone]);
+                }
+
+                // Провайдер
+                if (d.network) {
+                    if (d.network.isp) rows.push(['📡 Провайдер', d.network.isp]);
+                    if (d.network.asn) rows.push(['🔢 ASN', d.network.asn]);
+                }
+
+                // Приватность
+                if (d.privacy) {
+                    const p = d.privacy;
+                    let badge = '';
+                    if (p.is_vpn) {
+                        badge = '<span class="privacy vpn">VPN</span>';
+                    } else if (p.is_datacenter) {
+                        badge = '<span class="privacy dc">Дата-центр</span>';
+                    } else {
+                        badge = `<span class="privacy clean">${p.grade || 'Чисто'}</span>`;
+                    }
+                    rows.push(['🔒 Приватность', badge]);
+                }
+
+                detailsEl.innerHTML = rows.map(([label, value]) =>
+                    `<div class="row"><span class="label">${label}</span><span class="value">${value}</span></div>`
+                ).join('');
+
+                statusEl.textContent = `Обновлено: ${new Date().toLocaleTimeString()}`;
+            } catch (err) {
+                ipEl.textContent = '—';
+                detailsEl.innerHTML = `<span class="error">Не удалось получить IP: ${err.message}</span>`;
+                statusEl.textContent = 'Проверьте подключение к интернету';
+            }
+        }
+
+        function copyIP() {
+            const ip = ipEl.textContent.trim();
+            if (!ip || ip === 'Загрузка...' || ip === '—') return;
+            navigator.clipboard.writeText(ip).then(() => {
+                statusEl.textContent = 'IP скопирован в буфер обмена';
+                setTimeout(() => { statusEl.textContent = ''; }, 2000);
+            }).catch(() => {
+                statusEl.textContent = 'Не удалось скопировать';
+            });
+        }
+
+        fetchIP();
+    </script>
+</body>
+</html>
